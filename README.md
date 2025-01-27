@@ -337,3 +337,4 @@ Combine Claude’s PDF and citations capabilities with external tools to:
 - [Anthropic Docs: PDF Support](https://docs.anthropic.com/en/docs/build-with-claude/pdf-support)
 - [API Reference](https://docs.anthropic.com/en/api/getting-started)
 
+![Claude Citations Test](src/img/Claude_citations_test1_260125.png)
