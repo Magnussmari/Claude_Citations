@@ -14,9 +14,27 @@ This implementation serves as both a practical example and a starting point for 
 ---
 
 # PDF Chat with Claude Citations
+## Quick Start
+
+1. Clone this repository
+2. Install dependencies: `pip install -r requirements.txt`
+3. Add your Anthropic API key to `.env`
+4. Place PDF files in the `documents` folder (sample included: "Machines of Loving Grace" by Dario Amodei)
+5. Run: `streamlit run Claude_citations_v1.py`
+
+## Sample Document
+This implementation includes "Machines of Loving Grace" by Dario Amodei (October 2024) as a sample PDF to test the citation capabilities. This thought-provoking essay explores how artificial intelligence could positively transform society while addressing key challenges and considerations.
+
+To try it out:
+1. Launch the application
+2. Ask questions about AI's potential impact on society
+3. Observe how Claude provides cited responses from specific pages
+
+You can replace this with your own PDFs or use it as a reference implementation.
+
 
 ## Overview
-This is a simple experiment with Claude Citations using PDF files. The application is built by Sigurður Már Árnason ([www.smarason.is](https://www.smarason.is/)) to explore Claude's citation capabilities.
+This is a simple experiment with Claude Citations using PDF files. The application is built by Magnus Smari Smarason ([www.smarason.is](https://www.smarason.is/)) to explore Claude's citation capabilities.
 
 The application allows users to:
 - Upload PDF documents
