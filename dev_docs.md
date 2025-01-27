@@ -1,168 +1,273 @@
-import streamlit as st
+Below is a concise developer-focused document that consolidates the citations and PDF support details for Claude 3.5 Sonnet and Haiku. Use this as a reference for integrating and optimizing these features in your applications.
+
+---
+
+# Build with Claude: Citations & PDF Support
+
+## Overview
+Claude 3.5 introduces two key capabilities to enhance your application’s functionality:
+1. **Citations**: Attach precise source references to the model’s responses, increasing reliability and traceability for content drawn from uploaded documents.
+2. **PDF Support**: Provide full PDF files for Claude to analyze text, images, charts, and tables within a single request.
+
+This document covers:
+- How to enable and use citations.
+- Supported document types (plain text, PDF, custom content).
+- How PDF processing works and best practices.
+
+---
+
+## 1. Citations
+
+### 1.1 Key Benefits
+- **Cost Savings**: Quoted text in `cited_text` does **not** count towards your output tokens.
+- **Improved Citation Reliability**: The system automatically parses and standardizes citations, guaranteeing valid pointers to your documents.
+- **Better Citation Quality**: Compared to a purely prompt-based approach, Claude is more likely to cite the most relevant portions of a document.
+
+### 1.2 Enabling Citations
+To enable citations, embed your documents in the request payload with `citations.enabled = true`.  
+> **Important**: All documents in a single request must have citations enabled or disabled—mixing is not currently supported.
+
+For example, to send plain text content:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+response = client.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    max_tokens=1024,
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "text",
+                        "media_type": "text/plain",
+                        "data": "The grass is green. The sky is blue."
+                    },
+                    "title": "My Document",
+                    "context": "This is a trustworthy document.",
+                    "citations": {"enabled": True}
+                },
+                {
+                    "type": "text",
+                    "text": "What color is the grass and sky?"
+                }
+            ]
+        }
+    ]
+)
+print(response)
+```
+
+### 1.3 How It Works
+
+1. **Provide Documents & Enable Citations**  
+   - Supply PDFs, plain text, or custom content documents.
+   - Set `citations.enabled = true` for each document.
+
+2. **Documents Get Processed**  
+   - Text is “chunked” to define the minimum granularity of possible citations.  
+     - PDFs/Plain Text: Automatically chunked by sentence.  
+     - Custom Content: No further chunking; you define the block structure.
+
+3. **Claude Provides Cited Responses**  
+   - The model’s output is broken into text blocks with associated citations.  
+   - Citations reference the exact location in the source document.
+
+#### Document Types & Citation Formats
+| Type           | Best For                                                                      | Chunking            | Citation Format               |
+|----------------|-------------------------------------------------------------------------------|---------------------|--------------------------------|
+| **Plain Text** | Simple text documents, prose                                                  | Sentence            | Character indices (0-indexed)  |
+| **PDF**        | Documents in PDF format (with extractable text)                               | Sentence            | Page numbers (1-indexed)       |
+| **Custom**     | Lists, transcripts, or special formatting where you control citation granularity | No additional chunking | Content block indices (0-indexed) |
+
+### 1.4 Response Structure
+A typical cited response has multiple text blocks. Each block’s `citations` array contains references like so:
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "According to the document, "
+    },
+    {
+      "type": "text",
+      "text": "the grass is green",
+      "citations": [{
+        "type": "char_location",
+        "cited_text": "The grass is green.",
+        "document_index": 0,
+        "document_title": "My Document",
+        "start_char_index": 0,
+        "end_char_index": 20
+      }]
+    }
+  ]
+}
+```
+
+### 1.5 Performance & Token Costs
+- Enabling citations adds minimal overhead to **input** tokens due to document chunking.
+- The extracted `cited_text` does **not** count towards **output** tokens, reducing overall cost.
+
+---
+
+## 2. PDF Support
+
+Claude 3.5 Sonnet can process PDFs by extracting text and analyzing page images (e.g., for charts and visuals). This allows you to ask for insights on both textual and non-textual data in a PDF.
+
+### 2.1 Requirements & Limits
+- **Maximum request size**: 32MB
+- **Maximum pages per request**: 100
+- **Format**: Standard PDF (no password/encryption)
+
+> **Note**: For scanned PDFs without extractable text, only the image portion is available; text cannot be extracted.
+
+### 2.2 Sending a PDF to Claude
+Below is a minimal example using the Messages API with a base64-encoded PDF:
+
+```python
 import anthropic
 import base64
-import os
-from dotenv import load_dotenv
-from PyPDF2 import PdfReader, PdfWriter
-import io
-import hashlib
+import httpx
 
-def main():
-    st.set_page_config(page_title="PDF Chat with Claude", page_icon="📚")
-    st.title("📚 PDF Chat with Claude")
-    
-    # Load environment variables
-    load_dotenv()
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    
-    # Sidebar settings
-    with st.sidebar:
-        st.title("⚙️ Settings")
-        if not api_key:
-            api_key = st.text_input("Enter Anthropic API Key", type="password")
-        st.markdown("---")
-        st.markdown("📖 **How to use**\n1. Upload PDFs to 'documents' folder\n2. Ask questions about the content\n3. View citations in responses")
+client = anthropic.Anthropic()
 
-    if not api_key:
-        st.error("🔑 Please enter your Anthropic API key in the sidebar")
-        return
+# Load and encode the PDF
+pdf_url = "https://assets.anthropic.com/m/1cd9d098ac3e6467/original/Claude-3-Model-Card-October-Addendum.pdf"
+pdf_data = base64.standard_b64encode(httpx.get(pdf_url).content).decode("utf-8")
 
-    # PDF processing with caching and hash verification
-    @st.cache_data(show_spinner=False)
-    def process_pdf(file_path):
-        documents = []
-        with open(file_path, "rb") as file:
-            pdf_reader = PdfReader(file)
-            num_pages = len(pdf_reader.pages)
-            
-            # Create hash for cache validation
-            content_hash = hashlib.md5(file.read()).hexdigest()
-            file.seek(0)
-            
-            for start in range(0, num_pages, 100):
-                pdf_writer = PdfWriter()
-                page_range = range(start, min(start + 100, num_pages))
-                for page in page_range:
-                    pdf_writer.add_page(pdf_reader.pages[page])
-                
-                pdf_bytes_io = io.BytesIO()
-                pdf_writer.write(pdf_bytes_io)
-                pdf_bytes = pdf_bytes_io.getvalue()
-                base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-                
-                documents.append({
+message = client.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    max_tokens=1024,
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
                     "type": "document",
                     "source": {
                         "type": "base64",
                         "media_type": "application/pdf",
-                        "data": base64_pdf
+                        "data": pdf_data
+                    }
+                },
+                {
+                    "type": "text",
+                    "text": "What are the key findings in this document?"
+                }
+            ]
+        }
+    ],
+)
+
+print(message.content)
+```
+
+### 2.3 How PDF Analysis Works
+
+1. **Extraction**: Each page is converted into an image; text is extracted from that page.  
+2. **Analysis**: Claude combines page text with the page image for a full visual + textual understanding.  
+3. **Response**: You receive a standard Claude completion, now informed by PDF data.
+
+### 2.4 Optimizing PDF Processing
+- **Place PDFs early** in your request for faster analysis.
+- Use standard, legible text and proper orientation.
+- If your PDF is large, **split into smaller chunks** to stay under size limits.
+- Enable **prompt caching** if you repeatedly query the same PDF.
+
+#### Example: Prompt Caching
+```python
+message = client.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    max_tokens=1024,
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": pdf_data
                     },
-                    "title": f"{os.path.basename(file_path)} (pages {start+1}-{min(start+100, num_pages)})",
-                    "citations": {"enabled": True}
-                })
-        return documents, content_hash
+                    "cache_control": {"type": "ephemeral"}
+                },
+                {
+                    "type": "text",
+                    "text": "Analyze this document."
+                }
+            ]
+        }
+    ],
+)
+```
 
-    # Document selection
-    pdf_path = "documents/Hrd. 2003_4119 nr. 425_2003.pdf"
-    if not os.path.exists(pdf_path):
-        st.error(f"📄 PDF file not found at {pdf_path}")
-        return
+---
 
-    documents, content_hash = process_pdf(pdf_path)
+## 3. Scaling Your Implementation
 
-    # Initialize chat history with system message
-    if "messages" not in st.session_state:
-        st.session_state.messages = [{
-            "role": "assistant",
-            "content": "Ask me anything about the document!",
-            "citations": []
-        }]
+### 3.1 Batch Processing
+For high-volume use cases, you can send multiple requests simultaneously via the [Message Batches API](https://docs.anthropic.com/claude/reference/message-batches).
 
-    # Display chat messages with citations
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            if message["citations"]:
-                st.markdown("---")
-                st.markdown("**References:**")
-                for idx, cite in enumerate(message["citations"], 1):
-                    source = f"`{cite['document']}`" if cite['document'] else "the document"
-                    st.markdown(f"{idx}. From {source} (page {cite['start_page']}):  \n`{cite['text']}`")
-
-    # Chat input
-    if prompt := st.chat_input("Ask about your PDF"):
-        # Add user message to history
-        st.session_state.messages.append({"role": "user", "content": prompt, "citations": []})
-        
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        # Prepare API message with proper content structure
-        client = anthropic.Anthropic(api_key=api_key)
-        
-        try:
-            with st.chat_message("assistant"), st.spinner("Analyzing document..."):
-                # Construct message with documents and prompt
-                messages = [{
-                    "role": "user",
-                    "content": [
-                        *documents,
-                        {"type": "text", "text": prompt}
-                    ]
-                }]
-
-                # Add conversation history
-                for msg in st.session_state.messages[:-1]:  # Exclude current prompt
-                    if msg["role"] == "user":
-                        content = [{"type": "text", "text": msg["content"]}]
-                    else:
-                        content = [
-                            {"type": "text", "text": msg["content"]},
-                            *[{"type": "text", "text": c["text"]} for c in msg["citations"]]
+```python
+message_batch = client.messages.batches.create(
+    requests=[
+        {
+            "custom_id": "doc1",
+            "params": {
+                "model": "claude-3-5-sonnet-20241022",
+                "max_tokens": 1024,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "document",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "application/pdf",
+                                    "data": pdf_data
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": "Summarize this document."
+                            }
                         ]
-                    messages.append({
-                        "role": msg["role"],
-                        "content": content
-                    })
+                    }
+                ]
+            }
+        }
+    ]
+)
+```
 
-                response = client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
-                    max_tokens=4000,
-                    messages=messages,
-                    temperature=0.3
-                )
+### 3.2 Tool Use & Chaining
+Combine Claude’s PDF and citations capabilities with external tools to:
+- Extract structured data from documents.
+- Automate repeated tasks (e.g., financial analysis, contract review).
 
-                if not response.content:
-                    raise ValueError("Empty response from API")
+---
 
-                # Process citations
-                citations = []
-                full_response = ""
-                for content_block in response.content:
-                    if content_block.type == "text":
-                        full_response += content_block.text
-                        if hasattr(content_block, 'citations'):
-                            for cite in content_block.citations:
-                                citations.append({
-                                    "document": cite.document_title,
-                                    "start_page": cite.start_page_number,
-                                    "end_page": cite.end_page_number,
-                                    "text": cite.cited_text[:150] + "..." if len(cite.cited_text) > 150 else cite.cited_text
-                                })
+## 4. Next Steps
+- **Explore advanced usage**: Merge citations with PDF support to provide both textual and visual references to your end users.
+- **Leverage chunking**: Adjust chunk sizes via custom documents to fine-tune citation granularity.
+- **Provide Feedback**: Anthropic welcomes improvements or feature suggestions via [this feedback form](https://docs.anthropic.com).
 
-                # Display response
-                st.markdown(full_response)
-                
-                # Add assistant response to history
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": full_response,
-                    "citations": citations
-                })
+---
 
-        except Exception as e:
-            st.error(f"🚨 Error processing request: {str(e)}")
-            st.session_state.messages.pop()  # Remove failed prompt
+### Additional Resources
+- [Anthropic Docs: Citations Overview]([https://docs.anthropic.com/claude/docs/citations](https://docs.anthropic.com/en/docs/build-with-claude/citations#example-plain-text-citation))
+- [Anthropic Docs: PDF Support]([https://docs.anthropic.com/claude/docs/pdf-suppor](https://docs.anthropic.com/en/docs/build-with-claude/pdf-support)t)
+- [API Reference]([https://docs.anthropic.com/claude/reference](https://docs.anthropic.com/en/api/getting-started))
 
-if __name__ == "__main__":
-    main()
+---
+
+**Happy building with Claude!**
