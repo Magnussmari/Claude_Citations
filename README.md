@@ -1,7 +1,7 @@
 # Claude Citations Test
 
 ## Introduction
-On January 23rd, 2025, Anthropic introduced a groundbreaking Citations API feature ([announcement](https://www.anthropic.com/news/introducing-citations-api)) that enables precise source attribution in AI responses. This repository contains a simple test implementation built by Magnus Smari Smarason ([www.smarason.is](https://www.smarason.is/)) to explore and demonstrate these capabilities.
+On January 23rd, 2025, Anthropic introduced a Citations API feature ([announcement](https://www.anthropic.com/news/introducing-citations-api)) that enables precise source attribution in AI responses. This repository contains a simple test implementation built by Magnus Smari Smarason ([www.smarason.is](https://www.smarason.is/)) to explore and demonstrate these capabilities.
 
 The Citations API allows Claude to:
 - Provide accurate page-level citations
