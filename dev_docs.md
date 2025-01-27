@@ -1,4 +1,20 @@
-Below is a concise developer-focused document that consolidates the citations and PDF support details for Claude 3.5 Sonnet and Haiku. Use this as a reference for integrating and optimizing these features in your applications.
+# PDF Chat with Claude Citations
+
+## Overview
+This is a simple experiment with Claude Citations using PDF files. The application is built by Sigurður Már Árnason (www.smarason.is) to explore Claude's citation capabilities.
+
+The application allows users to:
+- Upload PDF documents
+- Ask questions about the content
+- Receive responses with precise citations
+- Debug API interactions when needed
+
+## Features
+- PDF file processing with chunking for large documents
+- Citation tracking and display
+- Error handling and debugging mode
+- Conversation history management
+- Clean, user-friendly interface
 
 ---
 
@@ -257,9 +273,26 @@ Combine Claude’s PDF and citations capabilities with external tools to:
 ---
 
 ## 4. Next Steps
-- **Explore advanced usage**: Merge citations with PDF support to provide both textual and visual references to your end users.
-- **Leverage chunking**: Adjust chunk sizes via custom documents to fine-tune citation granularity.
-- **Provide Feedback**: Anthropic welcomes improvements or feature suggestions via [this feedback form](https://docs.anthropic.com).
+- **Enhance UI/UX**:
+  - Add dark/light mode toggle
+  - Implement collapsible citation sections
+  - Create a document preview panel
+  - Add progress indicators for long operations
+- **Expand Features**:
+  - Enable multi-document comparison
+  - Add document search functionality
+  - Implement conversation export
+  - Create custom citation display formats
+- **Performance Optimization**:
+  - Fine-tune chunking parameters
+  - Implement caching for repeated queries
+  - Add batch processing for multiple documents
+  - Optimize memory usage for large PDFs
+- **Developer Tools**:
+  - Add comprehensive logging
+  - Create testing framework
+  - Implement CI/CD pipeline
+  - Add performance monitoring
 
 ---
 
